@@ -14,7 +14,9 @@ class CustomerViewSetTest(AuthenticatedAPITestCase):
         self.customer_data = {
             'name': 'John Doe',
             'email': 'john@example.com',
-            'phone_number': '+254700123456'
+            'phone_number': '+254700123456',
+            'password': 'securepass123',
+            'confirm_password': 'securepass123'
         }
     
     def test_create_customer_authenticated(self):

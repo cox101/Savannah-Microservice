@@ -3,6 +3,8 @@ from django.test import TestCase
 from django.contrib.auth.models import User
 from rest_framework.test import APITestCase
 from oauth2_provider.models import Application, AccessToken
+from django.utils import timezone
+from datetime import timedelta
 import uuid
 
 
@@ -33,6 +35,7 @@ def access_token(user, oauth_application):
         user=user,
         application=oauth_application,
         token='test-token-123',
+        expires=timezone.now() + timedelta(hours=1),
         scope='read write'
     )
 
@@ -57,6 +60,7 @@ class AuthenticatedAPITestCase(APITestCase):
             user=self.user,
             application=self.application,
             token=str(uuid.uuid4()),
+            expires=timezone.now() + timedelta(hours=1),
             scope='read write'
         )
         

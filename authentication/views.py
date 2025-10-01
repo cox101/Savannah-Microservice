@@ -5,9 +5,12 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.contrib.auth.models import User
 from oauth2_provider.models import Application, AccessToken
 from oauth2_provider import views as oauth2_views
+from oauth2_provider.generators import generate_client_secret
 from datetime import datetime, timedelta
+from django.utils import timezone
 import requests
 import logging
+import uuid
 
 from .serializers import (
     UserRegistrationSerializer,
@@ -58,8 +61,8 @@ def login_view(request):
     access_token = AccessToken.objects.create(
         user=user,
         application=application,
-        token=AccessToken.generate_token(),
-        expires=datetime.now() + timedelta(seconds=3600),  # 1 hour
+        token=generate_client_secret(),  # Use oauth2_provider token generator
+        expires=timezone.now() + timedelta(seconds=3600),  # 1 hour
         scope='read write'
     )
     
