@@ -1,0 +1,194 @@
+---
+- name: Deploy Savannah Microservice
+  hosts: web_servers
+  become: yes
+  vars:
+    app_name: savannah-microservice
+    app_user: "{{ app_name }}"
+    app_dir: "/opt/{{ app_name }}"
+    venv_dir: "{{ app_dir }}/venv"
+    repo_url: "https://github.com/yourusername/Savannah-Microservice.git"
+    branch: main
+    
+    # Database configuration
+    db_name: savannah_microservice
+    db_user: savannah
+    db_password: "{{ vault_db_password }}"
+    
+    # Application configuration
+    secret_key: "{{ vault_secret_key }}"
+    debug: false
+    allowed_hosts: "{{ ansible_default_ipv4.address }},{{ inventory_hostname }}"
+    
+    # SMS configuration
+    africastalking_username: "{{ vault_africastalking_username }}"
+    africastalking_api_key: "{{ vault_africastalking_api_key }}"
+    africastalking_sender_id: "SAVANNAH"
+
+  tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install system dependencies
+      apt:
+        name:
+          - python3
+          - python3-pip
+          - python3-venv
+          - postgresql
+          - postgresql-contrib
+          - redis-server
+          - nginx
+          - supervisor
+          - git
+          - build-essential
+          - libpq-dev
+          - python3-dev
+        state: present
+
+    - name: Create application user
+      user:
+        name: "{{ app_user }}"
+        system: yes
+        shell: /bin/bash
+        home: "{{ app_dir }}"
+        createhome: yes
+
+    - name: Create application directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+
+    - name: Clone or update application repository
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ app_dir }}/src"
+        version: "{{ branch }}"
+        force: yes
+      become_user: "{{ app_user }}"
+      notify: restart application
+
+    - name: Create virtual environment
+      command: python3 -m venv {{ venv_dir }}
+      args:
+        creates: "{{ venv_dir }}/bin/activate"
+      become_user: "{{ app_user }}"
+
+    - name: Install Python dependencies
+      pip:
+        requirements: "{{ app_dir }}/src/requirements.txt"
+        virtualenv: "{{ venv_dir }}"
+      become_user: "{{ app_user }}"
+      notify: restart application
+
+    - name: Create environment file
+      template:
+        src: env.j2
+        dest: "{{ app_dir }}/.env"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0600'
+      notify: restart application
+
+    - name: Setup PostgreSQL database
+      postgresql_db:
+        name: "{{ db_name }}"
+        state: present
+      become_user: postgres
+
+    - name: Create PostgreSQL user
+      postgresql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_password }}"
+        priv: "{{ db_name }}:ALL"
+        state: present
+      become_user: postgres
+
+    - name: Run Django migrations
+      django_manage:
+        command: migrate
+        app_path: "{{ app_dir }}/src"
+        virtualenv: "{{ venv_dir }}"
+      become_user: "{{ app_user }}"
+      environment:
+        DJANGO_SETTINGS_MODULE: savannah_microservice.settings
+
+    - name: Collect static files
+      django_manage:
+        command: collectstatic
+        app_path: "{{ app_dir }}/src"
+        virtualenv: "{{ venv_dir }}"
+      become_user: "{{ app_user }}"
+      environment:
+        DJANGO_SETTINGS_MODULE: savannah_microservice.settings
+
+    - name: Create supervisor configuration for Django
+      template:
+        src: supervisor-django.conf.j2
+        dest: /etc/supervisor/conf.d/{{ app_name }}.conf
+      notify: restart supervisor
+
+    - name: Create supervisor configuration for Celery
+      template:
+        src: supervisor-celery.conf.j2
+        dest: /etc/supervisor/conf.d/{{ app_name }}-celery.conf
+      notify: restart supervisor
+
+    - name: Create Nginx configuration
+      template:
+        src: nginx.conf.j2
+        dest: /etc/nginx/sites-available/{{ app_name }}
+      notify: restart nginx
+
+    - name: Enable Nginx site
+      file:
+        src: /etc/nginx/sites-available/{{ app_name }}
+        dest: /etc/nginx/sites-enabled/{{ app_name }}
+        state: link
+      notify: restart nginx
+
+    - name: Remove default Nginx site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: restart nginx
+
+    - name: Start and enable services
+      systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      loop:
+        - postgresql
+        - redis-server
+        - nginx
+        - supervisor
+
+    - name: Start supervisor programs
+      supervisorctl:
+        name: "{{ item }}"
+        state: started
+      loop:
+        - "{{ app_name }}"
+        - "{{ app_name }}-celery"
+
+  handlers:
+    - name: restart application
+      supervisorctl:
+        name: "{{ app_name }}"
+        state: restarted
+
+    - name: restart supervisor
+      systemd:
+        name: supervisor
+        state: restarted
+
+    - name: restart nginx
+      systemd:
+        name: nginx
+        state: restarted

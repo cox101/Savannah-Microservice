@@ -1,0 +1,37 @@
+[run]
+source = .
+omit = 
+    */venv/*
+    */env/*
+    */migrations/*
+    */tests/*
+    manage.py
+    */settings/*
+    */asgi.py
+    */wsgi.py
+    */celery.py
+    */conftest.py
+    */test_*.py
+    */__pycache__/*
+    .tox/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if self.debug:
+    if settings.DEBUG
+    raise AssertionError
+    raise NotImplementedError
+    if 0:
+    if __name__ == .__main__.:
+    class .*\bProtocol\):
+    @(abc\.)?abstractmethod
+
+show_missing = True
+skip_covered = False
+precision = 2
+
+[html]
+directory = htmlcov
+title = Savannah Microservice Coverage Report
