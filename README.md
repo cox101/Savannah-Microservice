@@ -1,476 +1,279 @@
 # Savannah Microservice
 
-A comprehensive Python microservice built with Django REST Framework, featuring customer and order management with OAuth2 authentication and SMS notifications via Africa's Talking API.
+A Python microservice for managing customers and their orders with SMS notifications, built with FastAPI, PostgreSQL, and Africa's Talking SMS service.
 
-## 🚀 Features
+## Features
 
-- **RESTful API** for customers and orders management
-- **OAuth2 Authentication** using OpenID Connect
-- **SMS Notifications** via Africa's Talking API
-- **Asynchronous Task Processing** with Celery
-- **Comprehensive Testing** with 80%+ coverage
-- **CI/CD Pipeline** with GitHub Actions
-- **Containerized Deployment** with Docker
-- **Kubernetes Support** with Helm charts
-- **Infrastructure as Code** with Ansible playbooks
-- **Security Best Practices** implemented throughout
+- **Customer Management**: Create, read, update, and delete customers
+- **Order Management**: Handle customer orders with automatic SMS notifications
+- **Authentication**: Secure API endpoints using OpenID Connect (Auth0)
+- **SMS Notifications**: Automatic SMS alerts via Africa's Talking when orders are created
+- **Database**: PostgreSQL with SQLAlchemy ORM and Alembic migrations
+- **API Documentation**: Auto-generated OpenAPI/Swagger documentation
+- **Testing**: Comprehensive unit tests with pytest
+- **CI/CD**: GitHub Actions pipeline for automated testing and deployment
+- **Containerization**: Docker support for easy deployment
 
-## 📋 Table of Contents
+## Technology Stack
 
-- [Features](#-features)
-- [Architecture](#-architecture)
-- [Quick Start](#-quick-start)
-- [API Documentation](#-api-documentation)
-- [Authentication](#-authentication)
-- [SMS Integration](#-sms-integration)
-- [Testing](#-testing)
-- [Deployment](#-deployment)
-- [Monitoring](#-monitoring)
-- [Security](#-security)
-- [Contributing](#-contributing)
+- **Backend**: FastAPI (Python 3.12)
+- **Database**: PostgreSQL with SQLAlchemy ORM
+- **Authentication**: OpenID Connect (Auth0)
+- **SMS Service**: Africa's Talking
+- **Testing**: pytest with coverage
+- **Containerization**: Docker & Docker Compose
+- **CI/CD**: GitHub Actions
 
-## 🏗️ Architecture
+## API Endpoints
 
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   API Gateway   │    │   Load Balancer │    │      CDN        │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         └───────────────────────┼───────────────────────┘
-                                 │
-         ┌───────────────────────▼───────────────────────┐
-         │              Kubernetes Cluster               │
-         │  ┌─────────────────┐  ┌─────────────────┐    │
-         │  │   Django App    │  │  Celery Workers │    │
-         │  │    (Pods)       │  │     (Pods)      │    │
-         │  └─────────────────┘  └─────────────────┘    │
-         │           │                     │             │
-         │  ┌─────────▼─────────┐ ┌────────▼──────────┐  │
-         │  │   PostgreSQL      │ │      Redis        │  │
-         │  │   (Database)      │ │   (Cache/Queue)   │  │
-         │  └───────────────────┘ └───────────────────┘  │
-         └───────────────────────────────────────────────┘
-                                 │
-         ┌───────────────────────▼───────────────────────┐
-         │            External Services                  │
-         │  ┌─────────────────┐  ┌─────────────────┐    │
-         │  │ Africa's Talking│  │    Monitoring   │    │
-         │  │   SMS Gateway   │  │   & Logging     │    │
-         │  └─────────────────┘  └─────────────────┘    │
-         └───────────────────────────────────────────────┘
-```
+### Health Check
+- `GET /health` - Health check endpoint
+- `GET /` - Root endpoint with service information
 
-## 🚀 Quick Start
+### Authentication
+All API endpoints require Bearer token authentication via OpenID Connect.
+
+### Customers
+- `POST /api/v1/customers/` - Create a new customer
+- `GET /api/v1/customers/` - List all customers
+- `GET /api/v1/customers/{id}` - Get customer by ID
+- `GET /api/v1/customers/code/{code}` - Get customer by code
+- `PUT /api/v1/customers/{id}` - Update customer
+- `DELETE /api/v1/customers/{id}` - Delete customer
+
+### Orders
+- `POST /api/v1/orders/` - Create a new order (triggers SMS notification)
+- `GET /api/v1/orders/` - List all orders (with optional customer filter)
+- `GET /api/v1/orders/{id}` - Get order by ID
+- `PUT /api/v1/orders/{id}` - Update order
+- `DELETE /api/v1/orders/{id}` - Delete order
+
+## Quick Start
 
 ### Prerequisites
+- Python 3.12+
+- PostgreSQL
+- Docker (optional)
 
-- Python 3.11+
-- PostgreSQL 15+
-- Redis 7+
-- Docker & Docker Compose (optional)
+### Environment Setup
 
-### Local Development Setup
+1. Clone the repository:
+```bash
+git clone https://github.com/cox101/Savannah-Microservice.git
+cd Savannah-Microservice
+```
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/Savannah-Microservice.git
-   cd Savannah-Microservice
-   ```
+2. Create a virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
 
-2. **Create virtual environment**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+4. Set up environment variables:
+```bash
+cp .env.example .env
+# Edit .env with your actual configuration values
+```
 
-4. **Environment configuration**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
+5. Run database migrations:
+```bash
+alembic upgrade head
+```
 
-5. **Database setup**
-   ```bash
-   python manage.py migrate
-   python manage.py createsuperuser
-   ```
+6. Start the application:
+```bash
+python main.py
+```
 
-6. **Start development server**
-   ```bash
-   python manage.py runserver
-   ```
-
-7. **Start Celery worker** (in another terminal)
-   ```bash
-   celery -A savannah_microservice worker --loglevel=info
-   ```
+The API will be available at `http://localhost:8000` with documentation at `http://localhost:8000/docs`.
 
 ### Docker Setup
 
-1. **Build and run with Docker Compose**
-   ```bash
-   docker-compose up --build
-   ```
-
-2. **Run migrations**
-   ```bash
-   docker-compose exec web python manage.py migrate
-   docker-compose exec web python manage.py createsuperuser
-   ```
-
-The application will be available at `http://localhost:8000`
-
-## 📚 API Documentation
-
-### Base URL
-- Development: `http://localhost:8000/api`
-- Production: `https://api.savannah-microservice.com/api`
-
-### Authentication Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/auth/register/` | Register new user |
-| POST | `/auth/login/` | User login |
-| POST | `/auth/logout/` | User logout |
-| GET | `/auth/profile/` | Get user profile |
-| PATCH | `/auth/profile/` | Update user profile |
-| POST | `/auth/change-password/` | Change password |
-| GET | `/auth/token-info/` | Get token information |
-
-### Customer Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/customers/` | List customers |
-| POST | `/customers/` | Create customer |
-| GET | `/customers/{id}/` | Get customer details |
-| PATCH | `/customers/{id}/` | Update customer |
-| DELETE | `/customers/{id}/` | Delete customer |
-| GET | `/customers/{id}/orders/` | Get customer orders |
-| GET | `/customers/{id}/stats/` | Get customer statistics |
-| GET | `/customers/search/?q=query` | Search customers |
-
-### Order Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/orders/` | List orders |
-| POST | `/orders/` | Create order (triggers SMS) |
-| GET | `/orders/{id}/` | Get order details |
-| PATCH | `/orders/{id}/` | Update order |
-| DELETE | `/orders/{id}/` | Delete order |
-| PATCH | `/orders/{id}/update_status/` | Update order status |
-| POST | `/orders/{id}/cancel/` | Cancel order |
-| POST | `/orders/{id}/resend_sms/` | Resend SMS notification |
-| GET | `/orders/analytics/` | Get order analytics |
-| GET | `/orders/search/?q=query` | Search orders |
-
-### Example API Usage
-
-#### 1. Register a new user
+1. Build and run with Docker Compose:
 ```bash
-curl -X POST http://localhost:8000/api/auth/register/ \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "johndoe",
-    "email": "john@example.com",
-    "first_name": "John",
-    "last_name": "Doe",
-    "password": "securepassword123",
-    "confirm_password": "securepassword123"
-  }'
+docker-compose up --build
 ```
 
-#### 2. Create OAuth2 application
-```bash
-curl -X POST http://localhost:8000/api/auth/create-app/ \
-  -H "Content-Type: application/json" \
-  -d '{"name": "My Mobile App"}'
-```
+This will start both the application and PostgreSQL database.
 
-#### 3. Login and get access token
-```bash
-curl -X POST http://localhost:8000/api/auth/login/ \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "johndoe",
-    "password": "securepassword123",
-    "client_id": "your-client-id",
-    "client_secret": "your-client-secret"
-  }'
-```
+## Configuration
 
-#### 4. Create a customer
-```bash
-curl -X POST http://localhost:8000/api/customers/ \
-  -H "Authorization: Bearer your-access-token" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Jane Smith",
-    "email": "jane@example.com",
-    "phone_number": "+254700123456"
-  }'
-```
+### Environment Variables
 
-#### 5. Create an order (triggers SMS notification)
-```bash
-curl -X POST http://localhost:8000/api/orders/ \
-  -H "Authorization: Bearer your-access-token" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "customer": "customer-uuid",
-    "item": "Laptop Computer",
-    "amount": "999.99",
-    "quantity": 1,
-    "notes": "Urgent delivery required"
-  }'
-```
-
-## 🔐 Authentication
-
-The service uses OAuth2 with OpenID Connect for authentication:
-
-1. **Create OAuth2 Application**: Use the `/auth/create-app/` endpoint
-2. **User Registration**: Register users via `/auth/register/`
-3. **Login**: Exchange credentials for access token via `/auth/login/`
-4. **API Access**: Include token in `Authorization: Bearer <token>` header
-5. **Token Management**: Use `/auth/token-info/` to verify token status
-
-### Security Features
-
-- **Password Validation**: Minimum 8 characters with complexity requirements
-- **Token Expiration**: 1-hour access token lifetime
-- **CORS Protection**: Configurable allowed origins
-- **XSS Protection**: Content Security Policy headers
-- **SQL Injection Protection**: Django ORM with parameterized queries
-- **Rate Limiting**: Implemented at API Gateway level
-
-## 📱 SMS Integration
-
-The service integrates with Africa's Talking SMS API for notifications:
-
-### Configuration
+Create a `.env` file based on `.env.example`:
 
 ```env
-AFRICAS_TALKING_USERNAME=your-username
+# Database
+DATABASE_URL=postgresql://username:password@localhost:5432/savannah_db
+
+# Security
+SECRET_KEY=your-secret-key-here
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+# Auth0 / OpenID Connect
+AUTH0_DOMAIN=your-auth0-domain.auth0.com
+AUTH0_AUDIENCE=your-api-identifier
+AUTH0_CLIENT_ID=your-client-id
+AUTH0_CLIENT_SECRET=your-client-secret
+
+# Africa's Talking
+AFRICAS_TALKING_USERNAME=sandbox
 AFRICAS_TALKING_API_KEY=your-api-key
-AFRICAS_TALKING_SENDER_ID=SAVANNAH
+AFRICAS_TALKING_SANDBOX=true
+
+# Application
+DEBUG=true
+HOST=0.0.0.0
+PORT=8000
 ```
 
-### SMS Triggers
+### Auth0 Setup
 
-1. **Order Creation**: Automatic SMS sent when order is created
-2. **Status Updates**: SMS sent for important status changes (shipped, delivered, cancelled)
-3. **Manual Resend**: Use `/orders/{id}/resend_sms/` endpoint
+1. Create an Auth0 account and application
+2. Configure the application as an API
+3. Set the appropriate callback URLs
+4. Update the environment variables with your Auth0 configuration
 
-### Phone Number Format
+### Africa's Talking Setup
 
-- International format required: `+254700123456`
-- Local Kenyan numbers automatically converted: `0700123456` → `+254700123456`
+1. Sign up for Africa's Talking account
+2. Get your API credentials
+3. For production, set `AFRICAS_TALKING_SANDBOX=false`
 
-## 🧪 Testing
+## Testing
 
-### Running Tests
+Run the test suite:
 
 ```bash
 # Run all tests
-python manage.py test
-
-# Run with coverage
-coverage run --source='.' manage.py test
-coverage report
-coverage html
-
-# Run with pytest
 pytest
 
+# Run with coverage
+pytest --cov=app --cov-report=html
+
 # Run specific test file
-pytest customers/tests/test_models.py
-
-# Run with verbose output
-pytest -v
+pytest app/tests/test_api.py -v
 ```
 
-### Test Coverage
+## Development
 
-The project maintains 80%+ test coverage across:
+### Code Quality
 
-- **Unit Tests**: Model validation, serializer logic, utility functions
-- **Integration Tests**: API endpoints, authentication flow
-- **Mock Tests**: External service integrations (SMS, email)
-
-### Test Configuration
-
-- **Database**: Separate test database automatically created
-- **Fixtures**: Reusable test data in `tests/conftest.py`
-- **Mocking**: External APIs mocked for reliable testing
-- **Parallel Execution**: Tests run in parallel for faster feedback
-
-## 🚀 Deployment
-
-### Production Environment Variables
-
-```env
-SECRET_KEY=your-production-secret-key
-DEBUG=False
-ALLOWED_HOSTS=api.savannah-microservice.com
-DATABASE_URL=postgresql://user:pass@host:5432/db
-REDIS_URL=redis://redis-host:6379/0
-```
-
-### Docker Deployment
+The project uses several tools for code quality:
 
 ```bash
-# Build production image
-docker build -t savannah-microservice:latest .
+# Linting
+flake8 app/
 
-# Run with docker-compose
-docker-compose -f docker-compose.prod.yml up -d
+# Type checking
+mypy app/ --ignore-missing-imports
+
+# Code formatting
+black app/
 ```
 
-### Kubernetes Deployment
+### Database Migrations
+
+Create new migrations:
 
 ```bash
-# Install with Helm
-helm install savannah-microservice ./helm/savannah-microservice \
-  --set image.tag=latest \
-  --set secrets.secretKey=your-secret-key \
-  --set secrets.databaseUrl=postgresql://... \
-  --set ingress.hosts[0].host=api.savannah-microservice.com
+alembic revision --autogenerate -m "Description of changes"
 ```
 
-### Ansible Deployment
+Apply migrations:
 
 ```bash
-# Deploy to servers
-ansible-playbook -i inventory ansible/playbook.yml \
-  --vault-password-file vault_pass.txt
+alembic upgrade head
 ```
 
-## 📊 Monitoring
+## API Usage Examples
 
-### Health Checks
+### Authentication
 
-- **Application Health**: `/api/auth/health/`
-- **Database Health**: Automatic Django health checks
-- **Redis Health**: Connection verification in health endpoint
+For development, you can use the mock authentication by sending `mock-token` as the Bearer token:
 
-### Logging
+```bash
+curl -H "Authorization: Bearer mock-token" http://localhost:8000/api/v1/customers/
+```
 
-- **Application Logs**: Structured JSON logging
-- **Access Logs**: Nginx access logs
-- **Error Tracking**: Integration with Sentry (optional)
+### Create a Customer
 
-### Metrics
+```bash
+curl -X POST "http://localhost:8000/api/v1/customers/" \
+  -H "Authorization: Bearer mock-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "John Doe",
+    "code": "CUST001",
+    "phone_number": "+254712345678"
+  }'
+```
 
-- **Request Metrics**: Response time, error rates
-- **Business Metrics**: Orders created, SMS sent
-- **Infrastructure Metrics**: CPU, memory, disk usage
+### Create an Order
 
-## 🔒 Security
+```bash
+curl -X POST "http://localhost:8000/api/v1/orders/" \
+  -H "Authorization: Bearer mock-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "item": "Product Name",
+    "amount": 99.99,
+    "customer_id": 1
+  }'
+```
 
-### Security Measures Implemented
+## Deployment
 
-1. **Authentication & Authorization**
-   - OAuth2 with OpenID Connect
-   - Role-based access control
-   - Token-based authentication
+### CI/CD Pipeline
 
-2. **Data Protection**
-   - Input validation and sanitization
-   - SQL injection prevention
-   - XSS protection headers
+The project includes a GitHub Actions pipeline that:
 
-3. **Network Security**
-   - HTTPS enforcement
-   - CORS configuration
-   - Security headers (HSTS, CSP)
+1. Runs tests and linting
+2. Builds Docker images
+3. Deploys to production (configuration needed)
 
-4. **Infrastructure Security**
-   - Container security scanning
-   - Dependency vulnerability scanning
-   - Regular security updates
+### Production Deployment
 
-### Security Best Practices
+1. Set up a PostgreSQL database
+2. Configure environment variables for production
+3. Deploy using Docker or your preferred platform
+4. Run database migrations
+5. Configure Auth0 for production domain
+6. Set up Africa's Talking production credentials
 
-- Keep dependencies updated
-- Use environment variables for secrets
-- Regular security audits
-- Monitor for suspicious activity
-- Implement rate limiting
-- Use secure communication protocols
+## Project Structure
 
-## 📈 Performance
+```
+├── app/
+│   ├── api/                 # API route handlers
+│   ├── core/                # Core configuration and dependencies
+│   ├── models/              # Database models
+│   ├── schemas/             # Pydantic schemas for validation
+│   ├── services/            # Business logic and external services
+│   └── tests/               # Test files
+├── alembic/                 # Database migration files
+├── .github/workflows/       # CI/CD pipeline
+├── docker-compose.yml       # Docker compose configuration
+├── Dockerfile              # Container definition
+├── requirements.txt        # Python dependencies
+└── main.py                 # Application entry point
+```
 
-### Optimization Features
-
-- **Database Indexing**: Optimized queries with proper indexes
-- **Caching**: Redis caching for frequently accessed data
-- **Async Processing**: Celery for background tasks
-- **Connection Pooling**: Database connection optimization
-- **Static File Serving**: Optimized static file delivery
-
-### Scaling Considerations
-
-- **Horizontal Scaling**: Multiple application instances
-- **Database Scaling**: Read replicas, connection pooling
-- **Cache Scaling**: Redis clustering
-- **Load Balancing**: Application-level load balancing
-
-## 🤝 Contributing
-
-### Development Workflow
+## Contributing
 
 1. Fork the repository
-2. Create a feature branch: `git checkout -b feature-name`
-3. Make changes and write tests
-4. Run tests: `pytest`
-5. Run linting: `flake8 .`
-6. Format code: `black .`
-7. Commit changes: `git commit -m "Description"`
-8. Push to branch: `git push origin feature-name`
-9. Create Pull Request
+2. Create a feature branch
+3. Make your changes
+4. Add tests for new functionality
+5. Ensure all tests pass
+6. Submit a pull request
 
-### Code Standards
+## License
 
-- **PEP 8**: Python code style guide
-- **Black**: Code formatting
-- **Flake8**: Linting and style checking
-- **Type Hints**: Use type annotations where appropriate
-- **Docstrings**: Document all functions and classes
-
-### Testing Requirements
-
-- All new features must include tests
-- Maintain minimum 80% test coverage
-- Integration tests for API endpoints
-- Mock external service calls
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 📞 Support
-
-For support and questions:
-
-- **Email**: support@savannah-microservice.com
-- **Documentation**: [Wiki](https://github.com/yourusername/Savannah-Microservice/wiki)
-- **Issues**: [GitHub Issues](https://github.com/yourusername/Savannah-Microservice/issues)
-
-## 🙏 Acknowledgments
-
-- [Django REST Framework](https://www.django-rest-framework.org/)
-- [Africa's Talking API](https://africastalking.com/)
-- [OAuth2 Toolkit](https://django-oauth-toolkit.readthedocs.io/)
-- [Celery](https://docs.celeryproject.org/)
-
----
-
-**Built with ❤️ for Savannah Informatics Technical Interview**
+This project is licensed under the MIT License - see the LICENSE file for details.

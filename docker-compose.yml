@@ -4,68 +4,27 @@ services:
   db:
     image: postgres:15
     environment:
-      POSTGRES_DB: savannah_microservice
+      POSTGRES_DB: savannah_db
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: password
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data/
+      - postgres_data:/var/lib/postgresql/data
 
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-
-  web:
+  app:
     build: .
-    command: gunicorn --bind 0.0.0.0:8000 savannah_microservice.wsgi:application
-    volumes:
-      - .:/app
     ports:
       - "8000:8000"
     environment:
-      - DEBUG=1
-      - SECRET_KEY=your-secret-key-here
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/savannah_microservice
-      - REDIS_URL=redis://redis:6379/0
-      - AFRICAS_TALKING_USERNAME=sandbox
-      - AFRICAS_TALKING_API_KEY=your-api-key-here
-      - AFRICAS_TALKING_SENDER_ID=SAVANNAH
+      DATABASE_URL: postgresql://postgres:password@db:5432/savannah_db
+      SECRET_KEY: dev-secret-key
+      DEBUG: "true"
+      AFRICAS_TALKING_SANDBOX: "true"
     depends_on:
       - db
-      - redis
-
-  celery:
-    build: .
-    command: celery -A savannah_microservice worker --loglevel=info
     volumes:
       - .:/app
-    environment:
-      - DEBUG=1
-      - SECRET_KEY=your-secret-key-here
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/savannah_microservice
-      - REDIS_URL=redis://redis:6379/0
-      - AFRICAS_TALKING_USERNAME=sandbox
-      - AFRICAS_TALKING_API_KEY=your-api-key-here
-      - AFRICAS_TALKING_SENDER_ID=SAVANNAH
-    depends_on:
-      - db
-      - redis
-
-  celery-beat:
-    build: .
-    command: celery -A savannah_microservice beat --loglevel=info
-    volumes:
-      - .:/app
-    environment:
-      - DEBUG=1
-      - SECRET_KEY=your-secret-key-here
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/savannah_microservice
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      - db
-      - redis
 
 volumes:
   postgres_data:

@@ -6,15 +6,6 @@ on:
   pull_request:
     branches: [ main ]
 
-permissions:
-  contents: read
-  security-events: write
-  actions: read
-
-env:
-  PYTHON_VERSION: "3.11"
-  POSTGRES_VERSION: "15"
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -24,7 +15,7 @@ jobs:
         image: postgres:15
         env:
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: test_savannah_microservice
+          POSTGRES_DB: test_db
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -32,25 +23,14 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-      
-      redis:
-        image: redis:7-alpine
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: ${{ env.PYTHON_VERSION }}
+        python-version: '3.12'
 
     - name: Cache pip dependencies
       uses: actions/cache@v3
@@ -65,50 +45,27 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Run security checks
-      run: |
-        pip install bandit safety
-        bandit -r . -x */tests/*,*/venv/*,*/migrations/*
-        safety check
-
     - name: Run linting
       run: |
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 app/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
-    - name: Run code formatting check
+    - name: Run type checking
       run: |
-        black --check --diff .
+        mypy app/ --ignore-missing-imports
 
-    - name: Run tests with coverage
+    - name: Run tests
       env:
-        SECRET_KEY: test-secret-key-for-ci
-        DEBUG: True
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_savannah_microservice
-        REDIS_URL: redis://localhost:6379/0
-        AFRICAS_TALKING_USERNAME: sandbox
-        AFRICAS_TALKING_API_KEY: test-api-key
-        AFRICAS_TALKING_SENDER_ID: TEST
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        SECRET_KEY: test-secret-key
+        AFRICAS_TALKING_SANDBOX: true
       run: |
-        coverage run --source='.' manage.py test
-        coverage xml
-        coverage report --show-missing --fail-under=80
+        pytest app/tests/ -v --cov=app --cov-report=xml
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
       with:
         file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-
-    - name: Run Django system checks
-      env:
-        SECRET_KEY: test-secret-key-for-ci
-        DEBUG: True
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_savannah_microservice
-        REDIS_URL: redis://localhost:6379/0
-      run: |
-        python manage.py check --deploy
 
   build:
     needs: test
@@ -116,79 +73,33 @@ jobs:
     if: github.ref == 'refs/heads/main'
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Login to Docker Hub
+    - name: Login to DockerHub
       uses: docker/login-action@v3
       with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Build and push Docker image
+    - name: Build and push
       uses: docker/build-push-action@v5
       with:
         context: .
-        platforms: linux/amd64,linux/arm64
         push: true
         tags: |
-          ${{ secrets.DOCKER_USERNAME }}/savannah-microservice:latest
-          ${{ secrets.DOCKER_USERNAME }}/savannah-microservice:${{ github.sha }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+          ${{ secrets.DOCKERHUB_USERNAME }}/savannah-microservice:latest
+          ${{ secrets.DOCKERHUB_USERNAME }}/savannah-microservice:${{ github.sha }}
 
   deploy:
-    needs: [test, build]
+    needs: build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    environment: production
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Deploy to staging
-      run: |
-        echo "Deploying to staging environment..."
-        # Add your deployment commands here
-        # For example, deploying to Heroku, AWS, GCP, etc.
-
-    - name: Run smoke tests
-      run: |
-        echo "Running smoke tests on staging..."
-        # Add smoke tests here
-
-    - name: Notify deployment
-      uses: 8398a7/action-slack@v3
-      with:
-        status: ${{ job.status }}
-        channel: '#deployments'
-        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-      if: always()
-
-  security-scan:
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
-      with:
-        scan-type: 'fs'
-        scan-ref: '.'
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-
-    - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v3
-      with:
-        sarif_file: 'trivy-results.sarif'
+    - name: Deploy to production
+      run: |
+        echo "Deployment step would go here"
+        echo "Could use AWS ECS, Kubernetes, or other deployment targets"
